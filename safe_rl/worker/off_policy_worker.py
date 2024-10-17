@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 from cpprb import ReplayBuffer
@@ -82,15 +82,9 @@ class OffPolicyWorker:
                                             deterministic=False,
                                             with_logprob=False)
             
-            obs_next, reward, cost, done, _, info = self.env.step(action)
+            obs_next, reward, cost, terminated, truncated, info = self.env.step(action)
 
-            # Ignore the "done" signal if it comes from hitting the time
-            # horizon (that is, when it's an artificial terminal signal
-            # that isn't based on the agent's state)
-            done = False if i == self.timeout_steps - 1 or "TimeLimit.truncated" in info else done
-            # ignore the goal met terminal condition
-            terminal = done
-            done = True if "goal_met" in info and info["goal_met"] else done
+            done = terminated # Avoid done flag if "truncated"
 
             if done:
                 done_freq += 1
@@ -107,7 +101,7 @@ class OffPolicyWorker:
             ep_len += 1
             epoch_steps += 1
             obs = obs_next
-            if terminal:
+            if done:
                 terminal_freq += 1
                 self.logger.store(EpRet=ep_reward,
                                   EpCost=ep_cost,
@@ -133,14 +127,14 @@ class OffPolicyWorker:
 
         for i in range(self.timeout_steps):
             action, _ = self.policy.act(obs, deterministic=True, with_logprob=False)
-            obs_next, reward, done, info = self.env.step(action)
-            if "cost" in info:
-                cost = info["cost"]
-                ep_cost += cost
+            obs_next, reward, cost, terminated, truncated, info = self.env.step(action)
+            
+            ep_cost += cost
             ep_reward += reward
             ep_len += 1
             obs = obs_next
-            if done:
+            
+            if terminated or truncated:
                 break
         self.logger.store(TestEpRet=ep_reward,
                           TestEpLen=ep_len,
