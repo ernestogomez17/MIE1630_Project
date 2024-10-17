@@ -1,2 +1,0 @@
-Episode	EpRet	EpLen	EpCost	TotalEnvInteracts
-0	2.2776577828680615	1000	0	1000
